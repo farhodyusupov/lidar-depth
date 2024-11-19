@@ -1,0 +1,10 @@
+/* 
+  Localizable.strings
+  LiDARDepth
+
+  Created by Farkhod on 11/18/24.
+  Copyright © 2024 Apple. All rights reserved.
+*/
+
+"ballMsg" = "공을 클릭해주세요";
+"holeCupMsg" = "홀컵을 클릭해주세요";
