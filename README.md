@@ -1,3 +1,8 @@
+# New Feature development  
+Measuring the distance between 2 points.
+
+
+
 # Capturing depth using the LiDAR camera
 Access the LiDAR camera on supporting devices to capture precise depth data.
 

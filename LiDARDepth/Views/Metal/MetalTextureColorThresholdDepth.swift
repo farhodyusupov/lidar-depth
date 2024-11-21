@@ -97,30 +97,65 @@ final class MTKColorThresholdDepthTextureCoordinator: MTKCoordinator<MetalTextur
             print("No depth texture available.")
             return
         }
-        guard let commandBuffer = metalCommandQueue.makeCommandBuffer() else { return }
-        guard let passDescriptor = view.currentRenderPassDescriptor else { return }
-        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: passDescriptor) else { return }
+//        guard let commandBuffer = metalCommandQueue.makeCommandBuffer() else { return }
+//        guard let passDescriptor = view.currentRenderPassDescriptor else { return }
+//        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: passDescriptor) else { return }
 
+        let depthPoints = extractPointCloud(from: depthTexture)
+            
+            // Pass Points to GPU
+//        encoder.setVertexBytes(depthPoints, length: depthPoints.count * MemoryLayout<SIMD3<Float>>.stride, index: 0)
+//            
+//        encoder.setDepthStencilState(depthState)
+//        encoder.setRenderPipelineState(pipelineState)
+//
+        print("depthPoints::\(depthPoints)")
+        
         // Define vertex data locally
-        let vertexData: [Float] = [
-            -1, -1, 1, 1,
-             1, -1, 1, 0,
-            -1,  1, 0, 1,
-             1,  1, 0, 0
-        ]
-        encoder.setVertexBytes(vertexData, length: vertexData.count * MemoryLayout<Float>.stride, index: 0)
-        encoder.setFragmentBytes(&parent.minDepth, length: MemoryLayout<Float>.stride, index: 0)
-        encoder.setFragmentBytes(&parent.maxDepth, length: MemoryLayout<Float>.stride, index: 1)
-        encoder.setFragmentTexture(depthTexture, index: 0) // Depth texture
-        encoder.setDepthStencilState(depthState)
-        encoder.setRenderPipelineState(pipelineState)
-        encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
-        encoder.endEncoding()
-        commandBuffer.present(view.currentDrawable!)
-        commandBuffer.commit()
+//        let vertexData: [Float] = [
+//            -1, -1, 1, 1,
+//             1, -1, 1, 0,
+//            -1,  1, 0, 1,
+//             1,  1, 0, 0
+//        ]
+//        encoder.setVertexBytes(vertexData, length: vertexData.count * MemoryLayout<Float>.stride, index: 0)
+//        encoder.setFragmentBytes(&parent.minDepth, length: MemoryLayout<Float>.stride, index: 0)
+//        encoder.setFragmentBytes(&parent.maxDepth, length: MemoryLayout<Float>.stride, index: 1)
+//        encoder.setFragmentTexture(depthTexture, index: 0) 
+//        encoder.setDepthStencilState(depthState)
+//        encoder.setRenderPipelineState(pipelineState)
+//        encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+//        encoder.endEncoding()
+//        commandBuffer.present(view.currentDrawable!)
+//        commandBuffer.commit()
     }
 
-
+    func extractPointCloud(from depthTexture: MTLTexture) -> [SIMD3<Float>] {
+        var points: [SIMD3<Float>] = []
+        
+        let width = depthTexture.width
+        let height = depthTexture.height
+        
+        var depthData = [UInt16](repeating: 0, count: width * height)
+        let region = MTLRegionMake2D(0, 0, width, height)
+        depthTexture.getBytes(&depthData,
+                              bytesPerRow: MemoryLayout<UInt16>.size * width,
+                              from: region,
+                              mipmapLevel: 0)
+        
+        for y in 0..<height {
+            for x in 0..<width {
+                let depthValue = float16to32(depthData[y * width + x])
+                if depthValue > 0 {
+                    let z = depthValue
+                    let x3D = (Float(x) - parent.cx) * z / parent.fx
+                    let y3D = (Float(y) - parent.cy) * z / parent.fy
+                    points.append(SIMD3<Float>(x3D, y3D, z))
+                }
+            }
+        }
+        return points
+    }
     
     func float16to32(_ value: UInt16) -> Float {
         let exponent = Int((value >> 10) & 0x1F) - 15

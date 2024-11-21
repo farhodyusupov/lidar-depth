@@ -76,6 +76,12 @@ struct ContentView: View {
                     }
                 }
                 .padding(.bottom, 20)
+                HStack{
+                    Text("Point 1: \(distanceToPoint1 ?? 0.0, specifier: "%.2f") m")
+                    Text("Point 2: \(distanceToPoint2 ?? 0.0, specifier: "%.2f") m")
+                    Text("Distance: \(distanceBetweenPoints ?? 0.0, specifier: "%.2f") m")
+
+                }
             }
             .padding()
             .background(Color.black.opacity(0.7))
@@ -108,6 +114,7 @@ struct ContentView: View {
                     tapLocation2: $tapLocation2,
                     distanceToPoint1: $distanceToPoint1,
                     distanceToPoint2: $distanceToPoint2,
+//                    distanceBetweenPoints: $distanceBetweenPoints,
                     fx: 500.0,
                     fy: 500.0,
                     cx: 160.0,
@@ -117,27 +124,41 @@ struct ContentView: View {
                     DragGesture(minimumDistance: 0)
                         .onEnded { value in
                             if tapLocation1 == nil {
+                                // Set the first tap location
                                 tapLocation1 = value.location
                             } else if tapLocation2 == nil {
+                                // Set the second tap location
                                 tapLocation2 = value.location
-                                tapLocation1 = nil
-                                tapLocation2 = nil
+                                
+                                // Print the tapped locations
+                                if let location1 = tapLocation1, let location2 = tapLocation2 {
+                                    print("tapLocation1:: \(location1)")
+                                    print("tapLocation2:: \(location2)")
+                                    
+                                }
+                                
+                                // Reset the locations after processing
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                    tapLocation1 = nil
+                                    tapLocation2 = nil
+                                }
                             }
                         }
                 )
+
                 
-                ARView(
-                    verticalDistance: $verticalDistance,
-                    distanceBetweenPoints: $distanceBetweenPoints,
-                    manager: manager,
-                    isTapped: $isTapped,
-                    showBallToast: $showBallToast,
-                    showHoleCupToast: $showHoleCupToast,
-                    fx: 500.0,
-                    fy: 500.0,
-                    cx: 160.0,
-                    cy: 120.0
-                )
+//                  ARView(
+//                    verticalDistance: $verticalDistance,
+//                    distanceBetweenPoints: $distanceBetweenPoints,
+//                    manager: manager,
+//                    isTapped: $isTapped,
+//                    showBallToast: $showBallToast,
+//                    showHoleCupToast: $showHoleCupToast,
+//                    fx: 500.0,
+//                    fy: 500.0,
+//                    cx: 160.0,
+//                    cy: 120.0
+//                )
 
                 if showBallToast {
                     ToastView(message: "ballMsg".localized())
@@ -162,11 +183,11 @@ struct ContentView: View {
                                 }
             }
         }
-        .onAppear {
-                  DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                      showBallToast = true
-                  }
-              }
+//        .onAppear {
+//                  DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+//                      showBallToast = true
+//                  }
+//              }
     }
 }
 
