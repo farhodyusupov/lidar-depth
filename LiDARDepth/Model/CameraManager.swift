@@ -14,6 +14,8 @@ import AVFoundation
 class CameraManager: ObservableObject, CaptureDataReceiver {
 
     var capturedData: CameraCapturedData
+    @Published var depthPoints: [SIMD3<Float>] = []
+    var metalCoordinator: MTKColorThresholdDepthTextureCoordinator?
     @Published var isFilteringDepth: Bool {
         didSet {
             controller.isFilteringEnabled = isFilteringDepth
@@ -27,20 +29,30 @@ class CameraManager: ObservableObject, CaptureDataReceiver {
     let controller: CameraController
     var cancellables = Set<AnyCancellable>()
     var session: AVCaptureSession { controller.captureSession }
-    
+   
     init() {
-        // Create an object to store the captured data for the views to present.
+        // Initialization code remains unchanged
         capturedData = CameraCapturedData()
         controller = CameraController()
         controller.isFilteringEnabled = true
         controller.startStream()
         isFilteringDepth = controller.isFilteringEnabled
-        
+
         NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification).sink { _ in
             self.orientation = UIDevice.current.orientation
         }.store(in: &cancellables)
         controller.delegate = self
     }
+    
+    func setMetalCoordinator(_ coordinator: MTKColorThresholdDepthTextureCoordinator) {
+            metalCoordinator = coordinator
+            metalCoordinator?.depthPointsUpdated = { [weak self] points in
+                DispatchQueue.main.async {
+                    
+                    self?.depthPoints = points
+                }
+            }
+        }
     
     func startPhotoCapture() {
         controller.capturePhoto()

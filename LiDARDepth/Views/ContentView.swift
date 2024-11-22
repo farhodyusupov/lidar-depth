@@ -20,12 +20,14 @@ struct ContentView: View {
     @State private var showBallToast = false
     @State private var showHoleCupToast = false
     @State private var isTapped = false
-    
+    @State private var depthPoints: [SIMD3<Float>] = []
+
     @State private var isInit: Bool = false
     var spheres: [SCNNode] = []
     
     var body: some View {
         VStack {
+            
             VStack {
                 HStack {
                     VStack(alignment: .leading) {
@@ -48,11 +50,10 @@ struct ContentView: View {
                             .foregroundColor(.white)
                     }
                 }
-                .padding(.bottom, 20)
+                
                 
                 Divider()
                     .background(Color.white.opacity(0.5))
-                    .padding(.horizontal, 10)
                 
                 HStack {
                     VStack(alignment: .leading) {
@@ -75,36 +76,14 @@ struct ContentView: View {
                             .foregroundColor(.white)
                     }
                 }
-                .padding(.bottom, 20)
-                HStack{
-                    Text("Point 1: \(distanceToPoint1 ?? 0.0, specifier: "%.2f") m")
-                    Text("Point 2: \(distanceToPoint2 ?? 0.0, specifier: "%.2f") m")
-                    Text("Distance: \(distanceBetweenPoints ?? 0.0, specifier: "%.2f") m")
-
-                }
+                
             }
             .padding()
             .background(Color.black.opacity(0.7))
             .cornerRadius(10)
             
             ZStack {
-//                ARViewWithDepth(
-//                    verticalDistance: $verticalDistance,
-//                    distanceBetweenPoints: $distanceBetweenPoints,
-//                    maxDepth: $maxDepth,
-//                    minDepth: $minDepth,
-//                    tapLocation1: $tapLocation1,
-//                    tapLocation2: $tapLocation2,
-//                    distanceToPoint1: $distanceToPoint1,
-//                    distanceToPoint2: $distanceToPoint2,
-//                    manager: manager,
-//                    fx: 500.0,
-//                    fy: 500.0,
-//                    cx: 160.0,
-//                    cy: 120.0
-//                )
-//                .edgesIgnoringSafeArea(.all)
-              
+        
                 MetalTextureColorThresholdDepthView(
                     rotationAngle: 0,
                     maxDepth: $maxDepth,
@@ -114,7 +93,7 @@ struct ContentView: View {
                     tapLocation2: $tapLocation2,
                     distanceToPoint1: $distanceToPoint1,
                     distanceToPoint2: $distanceToPoint2,
-//                    distanceBetweenPoints: $distanceBetweenPoints,
+                    depthPoints: $manager.depthPoints,
                     fx: 500.0,
                     fy: 500.0,
                     cx: 160.0,
@@ -123,21 +102,16 @@ struct ContentView: View {
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .onEnded { value in
+                            print("depthPoints::\(manager.depthPoints)")
                             if tapLocation1 == nil {
-                                // Set the first tap location
                                 tapLocation1 = value.location
                             } else if tapLocation2 == nil {
-                                // Set the second tap location
                                 tapLocation2 = value.location
-                                
-                                // Print the tapped locations
                                 if let location1 = tapLocation1, let location2 = tapLocation2 {
                                     print("tapLocation1:: \(location1)")
                                     print("tapLocation2:: \(location2)")
                                     
                                 }
-                                
-                                // Reset the locations after processing
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                                     tapLocation1 = nil
                                     tapLocation2 = nil
@@ -146,48 +120,24 @@ struct ContentView: View {
                         }
                 )
 
+                ARView(
+                    points: manager.depthPoints,
+                    verticalDistance: $verticalDistance,
+                    distanceBetweenPoints: $distanceBetweenPoints,
+                    manager: manager,
+                    isTapped: $isTapped,
+                    showBallToast: $showBallToast,
+                    showHoleCupToast: $showHoleCupToast,
+                    fx: 500.0,
+                    fy: 500.0,
+                    cx: 160.0,
+                    cy: 120.0
+                )
                 
-//                  ARView(
-//                    verticalDistance: $verticalDistance,
-//                    distanceBetweenPoints: $distanceBetweenPoints,
-//                    manager: manager,
-//                    isTapped: $isTapped,
-//                    showBallToast: $showBallToast,
-//                    showHoleCupToast: $showHoleCupToast,
-//                    fx: 500.0,
-//                    fy: 500.0,
-//                    cx: 160.0,
-//                    cy: 120.0
-//                )
 
-                if showBallToast {
-                    ToastView(message: "ballMsg".localized())
-                                        .onAppear {
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                                withAnimation {
-                                                    showBallToast = false
-                                                }
-                                            }
-                                        }
-                                }
-                                
-                                if showHoleCupToast {
-                                    ToastView(message: "holeCupMsg".localized())
-                                        .onAppear {
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                                withAnimation {
-                                                    showHoleCupToast = false
-                                                }
-                                            }
-                                        }
-                                }
+
             }
         }
-//        .onAppear {
-//                  DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-//                      showBallToast = true
-//                  }
-//              }
     }
 }
 

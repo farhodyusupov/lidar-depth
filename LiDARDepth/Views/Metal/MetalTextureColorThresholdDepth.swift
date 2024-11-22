@@ -16,19 +16,26 @@ struct MetalTextureColorThresholdDepthView: UIViewRepresentable, MetalRepresenta
     @Binding var tapLocation2: CGPoint?
     @Binding var distanceToPoint1: Float?
     @Binding var distanceToPoint2: Float?
-    
+    @Binding var depthPoints: [SIMD3<Float>]
     var fx: Float = 500.0
     var fy: Float = 500.0
     var cx: Float = 160.0
     var cy: Float = 120.0
     
-    
     func makeCoordinator() -> MTKColorThresholdDepthTextureCoordinator {
-        MTKColorThresholdDepthTextureCoordinator(parent: self)
+        let coordinator = MTKColorThresholdDepthTextureCoordinator(parent: self)
+        coordinator.depthPointsUpdated = { points in
+            DispatchQueue.main.async {
+                self.depthPoints = points
+            }
+        }
+        return coordinator
     }
 }
 
 final class MTKColorThresholdDepthTextureCoordinator: MTKCoordinator<MetalTextureColorThresholdDepthView> {
+    private var depthBuffer: [UInt16] = []
+    var depthPointsUpdated: (([SIMD3<Float>]) -> Void)? 
     private func get3DDistanceAtPoint(_ point: CGPoint) -> Float? {
            guard let depthTexture = parent.capturedData.depth else { return nil }
            
@@ -102,16 +109,18 @@ final class MTKColorThresholdDepthTextureCoordinator: MTKCoordinator<MetalTextur
 //        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: passDescriptor) else { return }
 
         let depthPoints = extractPointCloud(from: depthTexture)
-            
-            // Pass Points to GPU
+//        depthPointsUpdated?(depthPoints)
+        DispatchQueue.main.async {
+              self.depthPointsUpdated?(depthPoints)
+          }
 //        encoder.setVertexBytes(depthPoints, length: depthPoints.count * MemoryLayout<SIMD3<Float>>.stride, index: 0)
 //            
 //        encoder.setDepthStencilState(depthState)
 //        encoder.setRenderPipelineState(pipelineState)
-//
-        print("depthPoints::\(depthPoints)")
+
+//        print("depthPoints::\(depthPoints)")
         
-        // Define vertex data locally
+        
 //        let vertexData: [Float] = [
 //            -1, -1, 1, 1,
 //             1, -1, 1, 0,
@@ -131,35 +140,39 @@ final class MTKColorThresholdDepthTextureCoordinator: MTKCoordinator<MetalTextur
     }
 
     func extractPointCloud(from depthTexture: MTLTexture) -> [SIMD3<Float>] {
-        var points: [SIMD3<Float>] = []
-        
-        let width = depthTexture.width
-        let height = depthTexture.height
-        
-        var depthData = [UInt16](repeating: 0, count: width * height)
-        let region = MTLRegionMake2D(0, 0, width, height)
-        depthTexture.getBytes(&depthData,
-                              bytesPerRow: MemoryLayout<UInt16>.size * width,
-                              from: region,
-                              mipmapLevel: 0)
-        
-        for y in 0..<height {
-            for x in 0..<width {
-                let depthValue = float16to32(depthData[y * width + x])
-                if depthValue > 0 {
-                    let z = depthValue
-                    let x3D = (Float(x) - parent.cx) * z / parent.fx
-                    let y3D = (Float(y) - parent.cy) * z / parent.fy
-                    points.append(SIMD3<Float>(x3D, y3D, z))
+            var points: [SIMD3<Float>] = []
+
+            let width = depthTexture.width
+            let height = depthTexture.height
+
+            // Reuse the depth buffer to save memory allocations
+            if depthBuffer.count != width * height {
+                depthBuffer = [UInt16](repeating: 0, count: width * height)
+            }
+
+            let region = MTLRegionMake2D(0, 0, width, height)
+            depthTexture.getBytes(&depthBuffer,
+                                  bytesPerRow: MemoryLayout<UInt16>.size * width,
+                                  from: region,
+                                  mipmapLevel: 0)
+
+            for y in 0..<height {
+                for x in 0..<width {
+                    let depthValue = float16to32(depthBuffer[y * width + x])
+                    if depthValue > 0 {
+                        let z = depthValue
+                        let x3D = (Float(x) - parent.cx) * z / parent.fx
+                        let y3D = (Float(y) - parent.cy) * z / parent.fy
+                        points.append(SIMD3<Float>(x3D, y3D, z))
+                    }
                 }
             }
+            return points
         }
-        return points
-    }
-    
-    func float16to32(_ value: UInt16) -> Float {
-        let exponent = Int((value >> 10) & 0x1F) - 15
-        let fraction = Float(value & 0x3FF) / Float(1 << 10) + 1.0
-        return (value & 0x8000 != 0 ? -1.0 : 1.0) * fraction * pow(2.0, Float(exponent))
-    }
+
+        func float16to32(_ value: UInt16) -> Float {
+            let exponent = Int((value >> 10) & 0x1F) - 15
+            let fraction = Float(value & 0x3FF) / Float(1 << 10) + 1.0
+            return (value & 0x8000 != 0 ? -1.0 : 1.0) * fraction * pow(2.0, Float(exponent))
+        }
 }
